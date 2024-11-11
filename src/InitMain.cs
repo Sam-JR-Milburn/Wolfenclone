@@ -2,10 +2,13 @@
 using System;
 using System.Json;
 using System.IO;
+using System.Threading; // Calls the GameEngine loop.
 
+// For the MonitorInfo functionality.
 using OpenTK.Windowing.Desktop;
 using OpenTK.Windowing.Common;
 
+using GameEngine;
 using RenderEngine;
 
 namespace Initialisation {
@@ -80,7 +83,7 @@ namespace Initialisation {
       }
 
       // Assign the NativeWindowSettings.
-      JsonValue settingsBlock = null;
+      JsonValue settingsBlock;
       if(!settingsJson.ContainsKey("default")){
         throw new ArgumentException("settings.json needs a default settings block.");
       }
@@ -94,9 +97,9 @@ namespace Initialisation {
       }
     }
 
-		/// <Summary>
+		/// <summary>
     /// Process initial arguments, collect system information.
-    /// </Summary>
+    /// </summary>
 		public static void Main(String[] args){
       // Load settings file.
       try {
@@ -107,14 +110,16 @@ namespace Initialisation {
         return;
       }
 
-      
-      // REPLACE ME.
-      using(
-        Window window = new Window(InitMain.GetSettingsDefault(), 60.0)
-      ){
-        window.Run();
-      }
-
+      // OpenGL (GLFW) must be called from the Main thread.
+      Window window = new Window(InitMain.GetSettingsDefault(), 60.0);
+      // Pass the window reference to the GameEngine first.
+      GameRunner runner = new GameRunner(window);
+      window.AddObserver(runner);
+      new Thread(() => {
+        runner.Run();
+      }).Start();
+      // Run Window after setting up multithreading.
+      window.Run();
 		}
     // EOF InitMain.
 	}
