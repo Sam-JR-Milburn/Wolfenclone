@@ -15,7 +15,7 @@ namespace Initialisation {
 
   public class InitMain {
     /// <summary> Keep track of the monitor we're on, reassign if necessary. </summary>
-    /// <remarks> Needs to be called before other initialisation functions </remarks>
+    /// <remarks> Needs to be called before other initialisation functions. </remarks>
     private static MonitorInfo CurrentMonitorInfo = Monitors.GetPrimaryMonitor();
     private static bool SetMonitorInfo(NativeWindow nw){
       if(nw == null){ return false; }
@@ -24,7 +24,12 @@ namespace Initialisation {
     }
 
     /// <summary> Our default options from the settings.json file. </summary>
-    private static NativeWindowSettings WindowSettingsDefault;
+    private static NativeWindowSettings WindowSettingsDefault =
+      new NativeWindowSettings(){
+        ClientSize = (500,500),
+        Title = "ErrorTitle",
+        WindowState = WindowState.Maximized
+      };
     public static NativeWindowSettings GetSettingsDefault(){
       return InitMain.WindowSettingsDefault;
     }
@@ -111,13 +116,12 @@ namespace Initialisation {
       }
 
       // OpenGL (GLFW) must be called from the Main thread.
-      Window window = new Window(InitMain.GetSettingsDefault(), 60.0);
+      RenderWindow window = RenderWindow.InitialiseInstance(InitMain.GetSettingsDefault(), 60.0);
       // Pass the window reference to the GameEngine first.
-      GameRunner runner = new GameRunner(window);
+      GameRunner runner = new GameRunner();
       window.AddObserver(runner);
-      new Thread(() => {
-        runner.Run();
-      }).Start();
+      // Game logic run in a separate thread, communicating through observer pattern.
+      new Thread(() => { runner.Run(); }).Start();
       // Run Window after setting up multithreading.
       window.Run();
 		}
