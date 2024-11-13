@@ -42,12 +42,15 @@ namespace RenderEngine {
       this.Observers.Add(iwo);
     }
 
-
-
-    //DEBUG
-    private int VertexBufferObject;
-    private int VertexArrayObject;
-    private Shader shader;
+    // DEBUG: A little cleaner.
+    private Shader exampleShader;
+    private int vertexBufferObject;
+    private int vertexArrayObject;
+    private float[] exampleVertices = {
+        -0.5f, -0.5f, 0.0f, //Bottom-left vertex
+         0.5f, -0.5f, 0.0f, //Bottom-right vertex
+         0.0f,  0.5f, 0.0f  //Top vertex
+    };
 
 
     /// <remarks> Called when the Window is first instantiated. </remarks>
@@ -55,57 +58,42 @@ namespace RenderEngine {
       base.OnLoad();
       GL.ClearColor(0.2f,0.2f,0.2f,1.0f);
 
-      //DEBUG ???
-      this.VertexBufferObject = GL.GenBuffer();
-      GL.BindBuffer(BufferTarget.ArrayBuffer, VertexBufferObject);
+      //DEBUG: A little cleaner.
+      this.exampleShader = new Shader("res/exampleshader.vert", "res/exampleshader.frag");
+      this.vertexBufferObject = GL.GenBuffer();
+      GL.BindBuffer(BufferTarget.ArrayBuffer, this.vertexBufferObject);
 
-      
-      float[] vertices = {
-          -0.5f, -0.5f, 0.0f, //Bottom-left vertex
-           0.5f, -0.5f, 0.0f, //Bottom-right vertex
-           0.0f,  0.5f, 0.0f  //Top vertex
-      };
+      GL.BufferData(
+        BufferTarget.ArrayBuffer,
+        exampleVertices.Length * sizeof(float),
+        exampleVertices,
+        BufferUsageHint.DynamicDraw);
 
-      GL.BufferData(BufferTarget.ArrayBuffer, vertices.Length * sizeof(float), vertices, BufferUsageHint.StaticDraw);
-      // DEBUG: Shader.
-      this.shader = new Shader("res/exampleshader.vert", "res/exampleshader.frag");
-      // DEBUG:
-      this.VertexArrayObject = GL.GenVertexArray();
-      GL.BindVertexArray(this.VertexArrayObject);
-      // DEBUG: 0 - Shader index, 3 - Size, false: normalisation flag, last val (0): offset.
-      GL.VertexAttribPointer(0, 3, VertexAttribPointerType.Float, false, 3 * sizeof(float), 0);
+      this.vertexArrayObject = GL.GenVertexArray();
+      GL.BindVertexArray(this.vertexArrayObject);
 
-      // DEBUG
-      GL.BindBuffer(BufferTarget.ArrayBuffer, VertexBufferObject);
-      GL.BufferData(BufferTarget.ArrayBuffer, vertices.Length * sizeof(float), vertices, BufferUsageHint.StaticDraw);
-
+      // 1: location (manually specified for now), 2: size, 3: data type,
+      // 4: normalise?, 5: exact sizeof, 6: 'offset'.
       GL.VertexAttribPointer(0, 3, VertexAttribPointerType.Float, false, 3 * sizeof(float), 0);
       GL.EnableVertexAttribArray(0);
-
-      //shader.Use();
-
-
+      this.exampleShader.Use(); // Activate the Shader in memory.
     }
 
-    /// <remarks> Nothing happening here yet. </remarks>
+    /// <remarks> OpenGL Buffer Cleanup. </remarks>
     protected override void OnUnload(){
       base.OnUnload();
 
       //DEBUG: Shader cleanup (GPU Leak)
-      // If we're using some kind of resource loader, dispose of that here.
-      this.shader.Dispose();
-      File.AppendAllText("logfile", "unload at: "+DateTime.Now+"\n"); // DEBUG: Logger
-      //DEBUG
+      // Null all references.
       GL.BindBuffer(BufferTarget.ArrayBuffer, 0);
-      GL.DeleteBuffer(this.VertexBufferObject);
-    }
+      GL.BindVertexArray(0);
+      GL.UseProgram(0);
 
-    /// <remarks> Self-explanatory. </remarks>
-    protected override void OnFramebufferResize(FramebufferResizeEventArgs e){
-      base.OnFramebufferResize(e);
-      GL.Viewport(0,0,e.Width,e.Height);
+      // Delete all resources.
+      GL.DeleteBuffer(this.vertexBufferObject);
+      GL.DeleteVertexArray(this.vertexArrayObject);
+      GL.DeleteProgram(this.exampleShader.GetHandle());
     }
-
 
     /// <summary>
     /// Render graphics from the game engine's state.
@@ -115,27 +103,33 @@ namespace RenderEngine {
       // Run Graphics.
       GL.Clear(ClearBufferMask.ColorBufferBit);
 
-      //DEBUG
-      shader.Use();
-      GL.BindVertexArray(VertexArrayObject);
+      // DEBUG: A little cleaner. Wiggles back and forth!
+      this.exampleShader.Use(); // Activate the Shader in memory.
+      this.exampleVertices[6] = (float)(0.5 * Math.Sin(DateTime.Now.TimeOfDay.TotalMilliseconds/750));
+      // Copies data into the buffer, so this needs to be here when stuff changes.
+      GL.BufferData(
+        BufferTarget.ArrayBuffer,
+        this.exampleVertices.Length * sizeof(float),
+        this.exampleVertices,
+        BufferUsageHint.DynamicDraw);
+
+      GL.BindVertexArray(this.vertexArrayObject);
       GL.DrawArrays(PrimitiveType.Triangles, 0, 3);
 
+      SwapBuffers(); // -- //
+    }
 
-      // MORE REQUIRED HERE.
-      SwapBuffers();
+    /// <remarks> Self-explanatory. </remarks>
+    protected override void OnFramebufferResize(FramebufferResizeEventArgs e){
+      base.OnFramebufferResize(e);
+      GL.Viewport(0, 0, e.Width, e.Height);
     }
 
     /// <summary> Finalise Window: Notify objects that are listed. </summary>
     public override void Close(){
-      // Send signal to GameRunner.
-      this.SendToAllObservers("WINDOWCLOSE");
-      // Close Window.
+      //this.SendToAllObservers("WINDOWCLOSE"); // Send signal to GameRunner.
       base.Close();
     }
-
-
-
-
 
     /// <remarks>
     /// We must override Run() such that when the

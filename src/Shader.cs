@@ -9,11 +9,19 @@ namespace RenderEngine {
   /// </remarks>
   public class Shader : IDisposable {
     private bool Disposed = false;
-    private int Handle = 0; // OpenGL 'handle': references GPU memory.
+    private int Handle; // OpenGL 'handle': references GPU memory.
+    public int GetHandle(){
+      return this.Handle;
+    }
 
     /// <summary> Runs the Shader 'program' in the GPU. </summary>
     public void Use(){
-      if(this.Handle != -1){ GL.UseProgram(Handle); }
+      GL.UseProgram(Handle);
+    }
+
+    /// <remarks> At runtime, we can find the location reference. </remarks>
+    public int GetAttribLocation(String attribName){
+      return GL.GetAttribLocation(this.Handle, attribName);
     }
 
     /// <remarks> Frees GPU memory. </remarks>
@@ -52,8 +60,8 @@ namespace RenderEngine {
       int fragmentShader = GL.CreateShader(ShaderType.FragmentShader);
       GL.ShaderSource(fragmentShader, fragmentSource);
 
-      // Compile Shaders.
-      int success;
+
+      int success; // Compile Shaders.
 
       GL.CompileShader(vertexShader);
       GL.GetShader(vertexShader, ShaderParameter.CompileStatus, out success);
