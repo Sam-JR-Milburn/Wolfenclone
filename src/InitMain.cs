@@ -117,6 +117,7 @@ namespace Initialisation {
 
       // OpenGL (GLFW) must be called from the Main thread.
       RenderWindow window = RenderWindow.InitialiseInstance(InitMain.GetSettingsDefault(), 60.0);
+      window.CenterWindow();
       // Pass the window reference to the GameEngine first.
       GameRunner runner = new GameRunner();
       window.AddObserver(runner);

@@ -1,4 +1,4 @@
-// Filename: Window.cs
+// Filename: RenderWindow.cs
 using System;
 
 using OpenTK.Graphics.OpenGL4;
@@ -42,14 +42,70 @@ namespace RenderEngine {
       this.Observers.Add(iwo);
     }
 
+
+
+    //DEBUG
+    private int VertexBufferObject;
+    private int VertexArrayObject;
+    private Shader shader;
+
+
     /// <remarks> Called when the Window is first instantiated. </remarks>
     protected override void OnLoad(){
       base.OnLoad();
       GL.ClearColor(0.2f,0.2f,0.2f,1.0f);
+
+      //DEBUG ???
+      this.VertexBufferObject = GL.GenBuffer();
+      GL.BindBuffer(BufferTarget.ArrayBuffer, VertexBufferObject);
+
+      
+      float[] vertices = {
+          -0.5f, -0.5f, 0.0f, //Bottom-left vertex
+           0.5f, -0.5f, 0.0f, //Bottom-right vertex
+           0.0f,  0.5f, 0.0f  //Top vertex
+      };
+
+      GL.BufferData(BufferTarget.ArrayBuffer, vertices.Length * sizeof(float), vertices, BufferUsageHint.StaticDraw);
+      // DEBUG: Shader.
+      this.shader = new Shader("res/exampleshader.vert", "res/exampleshader.frag");
+      // DEBUG:
+      this.VertexArrayObject = GL.GenVertexArray();
+      GL.BindVertexArray(this.VertexArrayObject);
+      // DEBUG: 0 - Shader index, 3 - Size, false: normalisation flag, last val (0): offset.
+      GL.VertexAttribPointer(0, 3, VertexAttribPointerType.Float, false, 3 * sizeof(float), 0);
+
+      // DEBUG
+      GL.BindBuffer(BufferTarget.ArrayBuffer, VertexBufferObject);
+      GL.BufferData(BufferTarget.ArrayBuffer, vertices.Length * sizeof(float), vertices, BufferUsageHint.StaticDraw);
+
+      GL.VertexAttribPointer(0, 3, VertexAttribPointerType.Float, false, 3 * sizeof(float), 0);
+      GL.EnableVertexAttribArray(0);
+
+      //shader.Use();
+
+
     }
 
     /// <remarks> Nothing happening here yet. </remarks>
-    protected override void OnUnload(){ base.OnUnload(); }
+    protected override void OnUnload(){
+      base.OnUnload();
+
+      //DEBUG: Shader cleanup (GPU Leak)
+      // If we're using some kind of resource loader, dispose of that here.
+      this.shader.Dispose();
+      File.AppendAllText("logfile", "unload at: "+DateTime.Now+"\n"); // DEBUG: Logger
+      //DEBUG
+      GL.BindBuffer(BufferTarget.ArrayBuffer, 0);
+      GL.DeleteBuffer(this.VertexBufferObject);
+    }
+
+    /// <remarks> Self-explanatory. </remarks>
+    protected override void OnFramebufferResize(FramebufferResizeEventArgs e){
+      base.OnFramebufferResize(e);
+      GL.Viewport(0,0,e.Width,e.Height);
+    }
+
 
     /// <summary>
     /// Render graphics from the game engine's state.
@@ -58,8 +114,15 @@ namespace RenderEngine {
       base.OnUpdateFrame(e); // Necessary.
       // Run Graphics.
       GL.Clear(ClearBufferMask.ColorBufferBit);
-      SwapBuffers();
+
+      //DEBUG
+      shader.Use();
+      GL.BindVertexArray(VertexArrayObject);
+      GL.DrawArrays(PrimitiveType.Triangles, 0, 3);
+
+
       // MORE REQUIRED HERE.
+      SwapBuffers();
     }
 
     /// <summary> Finalise Window: Notify objects that are listed. </summary>
@@ -83,7 +146,6 @@ namespace RenderEngine {
       if(this.IsExiting){
         // Send signal to GameRunner.
         this.SendToAllObservers("WINDOWCLOSE");
-
       }
     }
 

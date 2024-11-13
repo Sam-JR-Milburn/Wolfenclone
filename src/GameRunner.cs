@@ -30,7 +30,7 @@ namespace GameEngine {
       if(
         this.TargetWindow.KeyboardState.IsKeyDown(Keys.LeftShift) &&
         this.TargetWindow.KeyboardState.IsKeyDown(Keys.Escape)){
-        this.TargetWindow.Close();
+        this.Quit();
       }
       // --
     }
@@ -42,7 +42,13 @@ namespace GameEngine {
         // Process keyboard input.
         this.ProcessInput();
         // Pass game state back to the Window?
+        // -- //
       }
+    }
+
+    ///
+    protected void Quit(){
+      this.TargetWindow.Close();
     }
 
     /// <remarks>
