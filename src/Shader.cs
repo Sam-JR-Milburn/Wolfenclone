@@ -24,7 +24,7 @@ namespace RenderEngine {
       return GL.GetAttribLocation(this._handle, attribName);
     }
 
-    /// <remarks> Frees GPU memory. </remarks>
+    /// <remarks> Frees GPU memory, protected - inherited from IDisposable. </remarks>
     protected virtual void Dispose(bool disposing){
         if (!this._disposed){
             GL.DeleteProgram(_handle);
@@ -34,13 +34,13 @@ namespace RenderEngine {
 
     /// <remarks> Keeps track of resource leaks. </remarks>
     ~Shader(){
-        if(this._disposed == false){
+        if(!this._disposed){
             File.AppendAllText("logfile",
-              "GPU resource leak from Shader: "+this._handle+"at "+DateTime.Now+"\n"); // DEBUG: Logger
+              "GPU resource leak from Shader: "+this._handle+" at "+DateTime.Now+"\n"); // DEBUG: Logger
         }
     }
 
-    /// <remarks> Free GPU resources - inherited from IDisposable. </remarks>
+    /// <remarks> Frees GPU memory, public - inherited from IDisposable. </remarks>
     public void Dispose(){
         this.Dispose(true);
         GC.SuppressFinalize(this);

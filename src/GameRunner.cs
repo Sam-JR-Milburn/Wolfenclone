@@ -54,9 +54,11 @@ namespace GameEngine {
     /// <remarks> A little safer now. </remarks>
     protected void Quit(){
       if(this._targetWindow == null){
-        this._running = false; return;
+        this._running = false;
+      } else { // Clearer control flow.
+        this._targetWindow.Close();
       }
-      this._targetWindow.Close();
+
     }
 
     /// <remarks>
