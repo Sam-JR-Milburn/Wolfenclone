@@ -8,35 +8,35 @@ namespace RenderEngine {
   /// hold their reference, and delete them when they're not needed, to avoid memory leaks.
   /// </remarks>
   public class Shader : IDisposable {
-    private bool Disposed = false;
-    private int Handle; // OpenGL 'handle': references GPU memory.
+    private bool _disposed = false;
+    private int _handle; // OpenGL 'handle': references GPU memory.
     public int GetHandle(){
-      return this.Handle;
+      return this._handle;
     }
 
     /// <summary> Runs the Shader 'program' in the GPU. </summary>
     public void Use(){
-      GL.UseProgram(Handle);
+      GL.UseProgram(_handle);
     }
 
     /// <remarks> At runtime, we can find the location reference. </remarks>
     public int GetAttribLocation(String attribName){
-      return GL.GetAttribLocation(this.Handle, attribName);
+      return GL.GetAttribLocation(this._handle, attribName);
     }
 
     /// <remarks> Frees GPU memory. </remarks>
     protected virtual void Dispose(bool disposing){
-        if (!this.Disposed){
-            GL.DeleteProgram(Handle);
-            this.Disposed = true;
+        if (!this._disposed){
+            GL.DeleteProgram(_handle);
+            this._disposed = true;
         }
     }
 
     /// <remarks> Keeps track of resource leaks. </remarks>
     ~Shader(){
-        if(this.Disposed == false){
+        if(this._disposed == false){
             File.AppendAllText("logfile",
-              "GPU resource leak from Shader: "+this.Handle+"at "+DateTime.Now+"\n"); // DEBUG: Logger
+              "GPU resource leak from Shader: "+this._handle+"at "+DateTime.Now+"\n"); // DEBUG: Logger
         }
     }
 
@@ -80,19 +80,19 @@ namespace RenderEngine {
       }
 
       // Generate GPU 'program'.
-      this.Handle = GL.CreateProgram();
-      GL.AttachShader(this.Handle, vertexShader); GL.AttachShader(this.Handle, fragmentShader);
-      GL.LinkProgram(this.Handle);
-      GL.GetProgram(this.Handle, GetProgramParameterName.LinkStatus, out success);
+      this._handle = GL.CreateProgram();
+      GL.AttachShader(this._handle, vertexShader); GL.AttachShader(this._handle, fragmentShader);
+      GL.LinkProgram(this._handle);
+      GL.GetProgram(this._handle, GetProgramParameterName.LinkStatus, out success);
       if(success == 0){
-        string infoLog = GL.GetProgramInfoLog(this.Handle);
+        string infoLog = GL.GetProgramInfoLog(this._handle);
         File.AppendAllText("logfile", "GPU program creation: "+infoLog+"\n"); // DEBUG: Logger
         throw new GraphicsException(infoLog);
       }
 
       // Cleanup, now that the Shader is loaded into GPU memory.
-      GL.DetachShader(this.Handle, vertexShader);
-      GL.DetachShader(this.Handle, fragmentShader);
+      GL.DetachShader(this._handle, vertexShader);
+      GL.DetachShader(this._handle, fragmentShader);
       GL.DeleteShader(vertexShader);
       GL.DeleteShader(fragmentShader);
     }

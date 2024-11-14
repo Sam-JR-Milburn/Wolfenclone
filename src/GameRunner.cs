@@ -15,30 +15,35 @@ namespace GameEngine {
   class GameRunner : IWindowObserver {
     // Keep RenderWindow reference to call Close(), when quit is detected.
     // Care should be taken if the Window reference is changed. Consider: resizing window.
-    private RenderWindow? TargetWindow;
+    private RenderWindow? _targetWindow;
 
     /// Observe messages.
     public void Notify(String message){
       if(message.Equals("WINDOWCLOSE")){
-        this.Running = false;
+        this._running = false;
         File.AppendAllText("logfile", "close signal: "+DateTime.Now+"\n"); // DEBUG: Logger
       }
     }
 
+    /// <remarks> Made this a little safer.</remarks>
     private void ProcessInput(){
+      if(this._targetWindow == null){
+        File.AppendAllText("logfile", "Lost reference to the RenderWindow. \n"); // DEBUG: Logger
+        this.Quit(); return;
+      }
+
       // SHIFT-ESC: Quit, if necessary.
       if(
-        this.TargetWindow.KeyboardState.IsKeyDown(Keys.LeftShift) &&
-        this.TargetWindow.KeyboardState.IsKeyDown(Keys.Escape)){
+        this._targetWindow.KeyboardState.IsKeyDown(Keys.LeftShift) &&
+        this._targetWindow.KeyboardState.IsKeyDown(Keys.Escape)){
         this.Quit();
       }
       // --
     }
-
-    /// <summary> Continuous loop is closed when close signal received. </summary>
-    private bool Running = true;
+    /// <summary> Defines: a continuous loop that keeps the game logic thread running. </summary>
+    private bool _running = true;
     public void Run(){
-      while(this.Running){
+      while(this._running){
         // Process keyboard input.
         this.ProcessInput();
         // Pass game state back to the Window?
@@ -46,16 +51,19 @@ namespace GameEngine {
       }
     }
 
-    ///
+    /// <remarks> A little safer now. </remarks>
     protected void Quit(){
-      this.TargetWindow.Close();
+      if(this._targetWindow == null){
+        this._running = false; return;
+      }
+      this._targetWindow.Close();
     }
 
     /// <remarks>
     /// We should probably call *some* initialisation here.
     /// </remarks>
     public GameRunner(){
-      this.TargetWindow = RenderWindow.GetInstance();
+      this._targetWindow = RenderWindow.GetInstance();
     }
   }
 }

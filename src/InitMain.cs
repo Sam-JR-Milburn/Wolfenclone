@@ -16,30 +16,30 @@ namespace Initialisation {
   public class InitMain {
     /// <summary> Keep track of the monitor we're on, reassign if necessary. </summary>
     /// <remarks> Needs to be called before other initialisation functions. </remarks>
-    private static MonitorInfo CurrentMonitorInfo = Monitors.GetPrimaryMonitor();
+    private static MonitorInfo _currentMonitorInfo = Monitors.GetPrimaryMonitor();
     private static bool SetMonitorInfo(NativeWindow nw){
       if(nw == null){ return false; }
-      InitMain.CurrentMonitorInfo = Monitors.GetMonitorFromWindow(nw);
+      InitMain._currentMonitorInfo = Monitors.GetMonitorFromWindow(nw);
       return true;
     }
 
     /// <summary> Our default options from the settings.json file. </summary>
-    private static NativeWindowSettings WindowSettingsDefault =
+    private static NativeWindowSettings _windowSettingsDefault =
       new NativeWindowSettings(){
         ClientSize = (500,500),
         Title = "ErrorTitle",
         WindowState = WindowState.Maximized
       };
     public static NativeWindowSettings GetSettingsDefault(){
-      return InitMain.WindowSettingsDefault;
+      return InitMain._windowSettingsDefault;
     }
 
     /// <summary>
     /// Custom, overriding options from the settings.json file: Nullable.
     /// </summary>
-    private static NativeWindowSettings? WindowSettingsCustom = null;
+    private static NativeWindowSettings? _windowSettingsCustom = null;
     public static NativeWindowSettings? GetSettingsCustom(){
-      return InitMain.WindowSettingsCustom;
+      return InitMain._windowSettingsCustom;
     }
 
     /// <summary> Parse a block of JSON settings. </summary>
@@ -50,8 +50,8 @@ namespace Initialisation {
       }
 
       // Dynamic Settings: Window Size from MonitorInfo.
-      int width   = InitMain.CurrentMonitorInfo.HorizontalResolution;
-      int height  = InitMain.CurrentMonitorInfo.VerticalResolution;
+      int width   = InitMain._currentMonitorInfo.HorizontalResolution;
+      int height  = InitMain._currentMonitorInfo.VerticalResolution;
       // Process the enum. I know this is finicky with JSON, but it works for now.
       String wstateRaw = settingsTree["WindowState"].ToString().Replace("\"", String.Empty);
       WindowState wstate; // Non-nullable.
@@ -93,12 +93,12 @@ namespace Initialisation {
         throw new ArgumentException("settings.json needs a default settings block.");
       }
       settingsBlock = settingsJson["default"];
-      InitMain.WindowSettingsDefault = InitMain.ParseSettingsTree(settingsBlock);
+      InitMain._windowSettingsDefault = InitMain.ParseSettingsTree(settingsBlock);
 
       // Not-necessary.
       if(settingsJson.ContainsKey("custom")){
         settingsBlock = settingsJson["custom"];
-        InitMain.WindowSettingsCustom = InitMain.ParseSettingsTree(settingsBlock);
+        InitMain._windowSettingsCustom = InitMain.ParseSettingsTree(settingsBlock);
       }
     }
 
