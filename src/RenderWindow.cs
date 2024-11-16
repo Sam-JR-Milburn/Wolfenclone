@@ -49,6 +49,7 @@ namespace RenderEngine {
     /// <remarks> Called when the Window is first instantiated. </remarks>
     protected override void OnLoad(){
       base.OnLoad();
+      this.SwapBuffers();
       this._renderer = new Renderer(); // Initialises the renderer.
     }
 
@@ -76,7 +77,7 @@ namespace RenderEngine {
       GL.Viewport(0, 0, e.Width, e.Height);
     }
 
-    /// Missing: Overriden Close() - no longer necessary.
+    /// Missing: Overriden GameWindow.Close() - no longer necessary.
 
     /// <remarks>
     /// Override Run(): close other threads when close button is clicked.

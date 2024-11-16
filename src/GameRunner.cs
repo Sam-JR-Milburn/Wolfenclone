@@ -21,7 +21,6 @@ namespace GameEngine {
     public void Notify(String message){
       if(message.Equals("WINDOWCLOSE")){
         this._running = false;
-        File.AppendAllText("logfile", "close signal: "+DateTime.Now+"\n"); // DEBUG: Logger
       }
     }
 

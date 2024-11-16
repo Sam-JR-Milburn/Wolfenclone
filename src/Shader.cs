@@ -16,7 +16,7 @@ namespace RenderEngine {
 
     /// <summary> Runs the Shader 'program' in the GPU. </summary>
     public void Use(){
-      GL.UseProgram(_handle);
+      GL.UseProgram(this._handle);
     }
 
     /// <remarks> At runtime, we can find the location reference. </remarks>
@@ -27,7 +27,7 @@ namespace RenderEngine {
     /// <remarks> Frees GPU memory, protected - inherited from IDisposable. </remarks>
     protected virtual void Dispose(bool disposing){
         if (!this._disposed){
-            GL.DeleteProgram(_handle);
+            GL.DeleteProgram(this._handle);
             this._disposed = true;
         }
     }
@@ -59,7 +59,6 @@ namespace RenderEngine {
       GL.ShaderSource(vertexShader, vertexSource);
       int fragmentShader = GL.CreateShader(ShaderType.FragmentShader);
       GL.ShaderSource(fragmentShader, fragmentSource);
-
 
       int success; // Compile Shaders.
 

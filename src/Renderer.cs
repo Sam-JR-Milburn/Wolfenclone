@@ -12,22 +12,39 @@ namespace RenderEngine {
     /// <remarks> Container for Shaders. </remarks>
     // -- HERE -- //
 
+
+    /// <summary> Consistent references to OpenGL render resources. </summary>
+    private int vertexBufferObject;
+    private int vertexArrayObject;
+    private int elementBufferObject;
+
     // DEBUG: A little cleaner.
     private Shader exampleShader;
     private Shader exampleShader1;
-    private int vertexBufferObject;
-    private int vertexArrayObject;
-    private float[] exampleVertices = {
-        -0.5f, -0.5f, 0.0f, //Bottom-left vertex
-         0.5f, -0.5f, 0.0f, //Bottom-right vertex
-         0.0f,  0.5f, 0.0f  //Top vertex
+
+    // DEBUG: Element Section.
+    // DEBUG: Working on Element Buffers.
+    float[] vertices = {
+         0.0f,  0.5f, 0.0f,  // top right
+         0.0f, -0.5f, 0.0f,  // bottom right
+        -0.5f, -0.5f, 0.0f,  // bottom left
+        -0.5f,  0.5f, 0.0f   // top left
+    };
+    uint[] indices = {
+      0, 1, 3,
+      1, 2, 3
     };
 
-    /// <remarks> ... </remarks>
+    /// <remarks> Maybe, a later 'load assets' function calling this. </remarks>
     private bool LoadShaders(){
       /// <remarks> At some point, there should be a JSON list describing these assets.</remarks>
-      this.exampleShader = new Shader("res/exampleshader.vert", "res/exampleshader.frag");
-      this.exampleShader1 = new Shader("res/exampleshader0.vert", "res/exampleshader0.frag");
+      try {
+        this.exampleShader = new Shader("res/exampleshader.vert", "res/exampleshader.frag");
+        this.exampleShader1 = new Shader("res/exampleshader0.vert", "res/exampleshader0.frag");
+      } catch(GraphicsException){
+        return false;
+      }
+
       return true;
     }
 
@@ -35,26 +52,34 @@ namespace RenderEngine {
     private bool Initialise(){
       GL.ClearColor(0.1f,0.1f,0.1f,1.0f);
 
-      //DEBUG: A little cleaner.
+      // Load resources, like Shaders and Textures.
       this.LoadShaders();
+
+      // Build the Vertex Buffer (VBO).
       this.vertexBufferObject = GL.GenBuffer();
       GL.BindBuffer(BufferTarget.ArrayBuffer, this.vertexBufferObject);
-      GL.BufferData(
-        BufferTarget.ArrayBuffer,
-        exampleVertices.Length * sizeof(float),
-        exampleVertices,
-        BufferUsageHint.DynamicDraw);
 
+      // Build the VAO.
       this.vertexArrayObject = GL.GenVertexArray();
       GL.BindVertexArray(this.vertexArrayObject);
 
-      // 1: location (manually specified for now), 2: size, 3: data type,
+      /// <remarks> Register Shaders with the VAO.</remarks>
+      // 1: location (manually specified), 2: size, 3: data type,
       // 4: normalise?, 5: exact sizeof, 6: 'offset'.
       GL.VertexAttribPointer(0, 3, VertexAttribPointerType.Float, false, 3 * sizeof(float), 0);
       GL.EnableVertexAttribArray(0);
+      //GL.VertexAttribPointer(1, 3, VertexAttribPointerType.Float, false, 3 * sizeof(float), 0);
+      //GL.EnableVertexAttribArray(1);
 
-      GL.VertexAttribPointer(1, 3, VertexAttribPointerType.Float, false, 3 * sizeof(float), 0);
-      GL.EnableVertexAttribArray(1);
+      // Build the EBO.
+      this.elementBufferObject = GL.GenBuffer();
+      GL.BindBuffer(BufferTarget.ElementArrayBuffer, this.elementBufferObject);
+      /*
+      GL.BufferData(
+        BufferTarget.ElementArrayBuffer,
+        indices.Length * sizeof(uint),
+        indices, BufferUsageHint.StaticDraw);
+      */
 
       return true; // Notice of intention, right now.
     }
@@ -64,7 +89,7 @@ namespace RenderEngine {
     protected virtual void Dispose(bool disposing){
       if(!this._disposed){
         // Loop here, to dispose of Shaders and any other IDisposables.
-        // -- //
+
         // Null all references.
         GL.BindBuffer(BufferTarget.ArrayBuffer, 0);
         GL.BindVertexArray(0);
@@ -72,6 +97,7 @@ namespace RenderEngine {
         // Delete all resources.
         GL.DeleteBuffer(this.vertexBufferObject);
         GL.DeleteVertexArray(this.vertexArrayObject);
+        //GL.DeleteElementBuffer(this.elementBufferObject); //What's the correct one here?
         GL.DeleteProgram(this.exampleShader.GetHandle());
         GL.DeleteProgram(this.exampleShader1.GetHandle());
 
@@ -97,37 +123,39 @@ namespace RenderEngine {
       // Run Graphics.
       GL.Clear(ClearBufferMask.ColorBufferBit);
 
-      // DEBUG: A little cleaner. Wiggles back and forth!
+      //
       this.exampleShader.Use(); // Activate the Shader in memory.
-      this.exampleVertices[6] = (float)(0.5 * Math.Sin(DateTime.Now.TimeOfDay.TotalMilliseconds/750));
-      // Copies data into the buffer, so this needs to be here when stuff changes.
+
+      // top-right
+      this.vertices[1] = 0.0f + Math.Abs((float)(0.5 * Math.Sin(DateTime.Now.TimeOfDay.TotalMilliseconds/2000)));
+      // bottom-right
+      this.vertices[4] = 0.0f - Math.Abs((float)(0.5 * Math.Sin(DateTime.Now.TimeOfDay.TotalMilliseconds/2000)));
+
+      // Buffer to VAO
       GL.BufferData(
         BufferTarget.ArrayBuffer,
-        this.exampleVertices.Length * sizeof(float),
-        this.exampleVertices,
+        vertices.Length * sizeof(float),
+        vertices,
         BufferUsageHint.DynamicDraw);
-      GL.BindVertexArray(this.vertexArrayObject);
-      GL.DrawArrays(PrimitiveType.Triangles, 0, 3); // Draw green triangle.
 
-      // DEBUG
-
-      float[] exampleVertices1 = {
-          -0.5f, -0.5f, 0.0f, //Bottom-left vertex
-           0.5f, -0.5f, 0.0f, //Bottom-right vertex
-           0.0f,  -0.25f, 0.0f  //Top vertex
-      };
-      exampleVertices1[7] = -0.25f + (float)(0.25f * Math.Sin(Math.PI+DateTime.Now.TimeOfDay.TotalMilliseconds/750));
-      this.exampleShader1.Use();
+      // Buffer to EBO.
       GL.BufferData(
-        BufferTarget.ArrayBuffer,
-        exampleVertices1.Length * sizeof(float),
-        exampleVertices1,
-        BufferUsageHint.DynamicDraw);
-      GL.BindVertexArray(this.vertexArrayObject);
-      GL.DrawArrays(PrimitiveType.Triangles, 0, 3); // Draw white triangle.
+        BufferTarget.ElementArrayBuffer,
+        indices.Length * sizeof(uint),
+        indices, BufferUsageHint.DynamicDraw);
 
-      // OpenGL is quite global, but the window must be notified.
-      RenderEngine.RenderWindow.GetInstance().SwapBuffers();
+      // Draw with EBO.
+      GL.DrawElements(
+        PrimitiveType.Triangles,
+        indices.Length,
+        DrawElementsType.UnsignedInt,
+        0);
+
+
+      // OpenGL is 'global', but the changes appear only if our window's buffers are swapped.
+      RenderWindow window = RenderEngine.RenderWindow.GetInstance();
+      if(window != null) { window.SwapBuffers(); }
+      //RenderEngine.RenderWindow.GetInstance().SwapBuffers();
     }
 
     /// <remarks> Initialise before a Renderer reference can be used. </remarks>
