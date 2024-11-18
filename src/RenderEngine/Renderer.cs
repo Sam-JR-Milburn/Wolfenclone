@@ -6,6 +6,8 @@ using OpenTK.Windowing.Common;
 using OpenTK.Windowing.Desktop;
 using OpenTK.Windowing.GraphicsLibraryFramework;
 
+using OpenTK.Windowing.Common.Input; // DEBUG: Mouse Cursor.
+
 namespace RenderEngine {
 
   /// <remarks> ... </remarks>
@@ -21,13 +23,22 @@ namespace RenderEngine {
     private int vertexArrayObject;
     private int elementBufferObject;
 
+    /// DEBUG: Move me elsewhere later.
+    private Vector3 cameraPosition = new Vector3(0.0f, 0.0f, 5.0f);
+    private Vector3 cameraFront = new Vector3(0.0f, 0.0f, -1.0f);
+    private Vector3 cameraUp = new Vector3(0.0f, 1.0f,  0.0f);
+    private float Yaw = 0.0f; private float Pitch = 0.0f;
+    Vector2 lastMousePos = new Vector2(0,0);
+
+
+
+
     // DEBUG: Texture work.
     private Shader exampleShader;
     private Texture exampleTexture;
 
     // DEBUG: More texture work.
-    //private Shader exampleShader1;
-    //private Texture exampleTexture1;
+    private Texture exampleTexture1;
 
     // -- //
     float[] vertices = {
@@ -49,7 +60,7 @@ namespace RenderEngine {
       try {
         this.exampleTexture = new Texture("res/sandstone-2.png");
         this.exampleShader = new Shader("res/textureshader.vert", "res/textureshader.frag");
-
+        this.exampleTexture1 = new Texture("res/sandstone-1.jpg");
       } catch(GraphicsException){
         return false;
       }
@@ -98,7 +109,7 @@ namespace RenderEngine {
         5 * sizeof(float), 3 * sizeof(float));
       // -- //
 
-      GL.Enable(EnableCap.DepthTest); // z-buffer.
+      GL.Enable(EnableCap.DepthTest); // Enable z-buffer.
 
       return true; // Notice of intention, right now.
     }
@@ -139,42 +150,73 @@ namespace RenderEngine {
 
     /// <summary> Renders a frame worth of graphics. </summary>
     /// <remarks> Should take some game state, and use OpenGL calls to represent that. </remarks>
-    public void Render(){
+    public void Render(FrameEventArgs e){
       // Run Graphics.
       GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit); // Color and z-buffer.
-      //GL.Clear(ClearBufferMask.ColorBufferBit);
+      RenderWindow? window = RenderEngine.RenderWindow.GetInstance();
+      if(window == null){ throw new InvalidOperationException("No window reference in Renderer!"); }
 
-      // --
-      Vector3 cameraPosition = new Vector3(0.0f, 0.0f, 3.0f);
-      Vector3 cameraTarget;
-      Vector3 cameraDirection;
+      // Local Space -> World Space translation.
+      Matrix4 model = Matrix4.CreateTranslation(5.5f,-1.25f,5.5f);
+
+      // -- //
+      KeyboardState input = window.KeyboardState; float speed = 0.25f;
+      if(input.IsKeyDown(Keys.W)){
+        this.cameraPosition += this.cameraFront * speed; // * (float)e.Time
+      }
+      if(input.IsKeyDown(Keys.S)){
+        this.cameraPosition -= this.cameraFront * speed; // * (float)e.Time
+      }
+      if(input.IsKeyDown(Keys.A)){
+        this.cameraPosition -= Vector3.Normalize(Vector3.Cross(this.cameraFront, this.cameraUp)) * speed; // * (float)e.Time
+      }
+      if(input.IsKeyDown(Keys.D)){
+        this.cameraPosition += Vector3.Normalize(Vector3.Cross(this.cameraFront, this.cameraUp)) * speed; // * (float)e.Time
+      }
+
+      // Camera Look-Around //
+      Vector2 mouse = window.MousePosition;
+      float deltaX = mouse.X - this.lastMousePos.X;
+      float deltaY = mouse.Y - this.lastMousePos.Y;
+      this.lastMousePos = new Vector2(mouse.X, mouse.Y);
+      float sensitivity = 0.02f;
+      this.Yaw += (deltaX * sensitivity);
+      //this.Pitch -= (deltaY * sensitivity);
+      // Lock pitch, prevent flipping.
+      if(this.Pitch > 89.9f){
+          this.Pitch = 89.9f;
+      } else if(this.Pitch < -89.9f){
+          this.Pitch = -89.9f;
+      } else{
+          this.Pitch -= deltaY * sensitivity;
+      }
 
 
-      // Rotate the object downwards.
-      //Matrix4 model = Matrix4.CreateRotationX(MathHelper.DegreesToRadians(0.0f));
+      this.cameraFront.X =
+        (float)Math.Cos(MathHelper.DegreesToRadians(this.Pitch)) *
+        (float)Math.Cos(MathHelper.DegreesToRadians(this.Yaw));
+      this.cameraFront.Y =
+        (float)Math.Sin(MathHelper.DegreesToRadians(this.Pitch));
+      this.cameraFront.Z =
+        (float)Math.Cos(MathHelper.DegreesToRadians(this.Pitch)) *
+        (float)Math.Sin(MathHelper.DegreesToRadians(this.Yaw));
+      this.cameraFront = Vector3.Normalize(this.cameraFront);
 
-      Matrix4 model = Matrix4.CreateRotationX(
-        MathHelper.DegreesToRadians((float)(DateTime.Now.TimeOfDay.TotalMilliseconds/100)));
+      // World Space -> Camera Space translation.
+      Matrix4 view = Matrix4.LookAt(
+        this.cameraPosition,
+        this.cameraPosition+this.cameraFront,
+        this.cameraUp
+      );
 
-      // Moving camera forward? Translate object towards us.
-      Matrix4 view = Matrix4.CreateTranslation(0.0f, 0.0f, -5.0f);
-      // -- // -- // -- // -- // -- // -- // -- // -- //
+      // Camera Space -> Clip Space culling.
       int Width = 1366; int Height = 768;
       Matrix4 projection = Matrix4.CreatePerspectiveFieldOfView(
         MathHelper.DegreesToRadians(45.0f),
-        Width / Height, 0.1f, 100.0f);
+        Width / Height, 0.01f, 100.0f);
       this.exampleShader.SetMatrix4("model", model);
       this.exampleShader.SetMatrix4("view", view);
       this.exampleShader.SetMatrix4("projection", projection);
-
-
-      // Activate GPU resources, draw with them.
-      GL.BindVertexArray(this.vertexArrayObject);
-      this.exampleTexture.Use();
-      this.exampleShader.Use();
-
-      // -- EBO --
-      //GL.DrawElements(PrimitiveType.Triangles, this.indices.Length, DrawElementsType.UnsignedInt, 0);
 
       float[] newVertices = {
           -0.5f, -0.5f, -0.5f,  0.0f, 0.0f,
@@ -219,7 +261,29 @@ namespace RenderEngine {
           -0.5f,  0.5f,  0.5f,  0.0f, 0.0f,
           -0.5f,  0.5f, -0.5f,  0.0f, 1.0f
       };
-      // --//
+      // -- //
+      // Activate GPU resources, draw with them.
+      GL.BindVertexArray(this.vertexArrayObject);
+      this.exampleTexture.Use();
+      this.exampleShader.Use();
+      GL.BufferData(BufferTarget.ArrayBuffer,
+        newVertices.Length * sizeof(float),
+        newVertices,
+        BufferUsageHint.StaticDraw);
+      GL.DrawArrays(PrimitiveType.Triangles, 0, 36);
+
+      // -- // Two cubes? // -- //
+      // --
+      model = Matrix4.CreateTranslation(7.5f,-6.25f,7.5f); // World-space.
+      model *= Matrix4.CreateTranslation(
+        0.0f,
+        (float)Math.Sin(DateTime.Now.TimeOfDay.TotalMilliseconds/1000),
+        0.0f);
+      this.exampleShader.SetMatrix4("model", model);
+      this.exampleShader.SetMatrix4("view", view);
+      this.exampleShader.SetMatrix4("projection", projection);
+      this.exampleTexture1.Use();
+      this.exampleShader.Use();
       GL.BufferData(BufferTarget.ArrayBuffer,
         newVertices.Length * sizeof(float),
         newVertices,
@@ -227,14 +291,13 @@ namespace RenderEngine {
       GL.DrawArrays(PrimitiveType.Triangles, 0, 36);
 
       // Swap buffers: render with the window.
-      RenderWindow? window = RenderEngine.RenderWindow.GetInstance();
-      if(window != null) { window.SwapBuffers(); }
+      window.SwapBuffers();
     }
 
     /// <remarks> ... </remarks>
-    public Renderer(int width, int height) : this(height/width){
+    public Renderer(int width, int height) : this((double)(height / width)){
       if(height == 0){ throw new DivideByZeroException(); }
-      //if(width <= 0 || height <= 0){ throw new IllegalArgumentException("The height or width can't be less than 1."); }
+      if(width <= 0 || height <= 0){ throw new ArgumentException("The height or width can't be less than 1."); }
     }
 
     /// <remarks> Initialise before a Renderer reference can be used. </remarks>

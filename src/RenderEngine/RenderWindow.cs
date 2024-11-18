@@ -51,6 +51,7 @@ namespace RenderEngine {
     protected override void OnLoad(){
       base.OnLoad();
       this.SwapBuffers();
+      this.CursorState = CursorState.Grabbed; // --
       // Resulting aspect ratio will change depending on taskbar orientation and 'fullscreenity'.
       // In my case, (1366,768) -> (1366, 699) with taskbar and non-fullscreen.
       Vector2i clientSize = this.ClientSize;
@@ -71,7 +72,7 @@ namespace RenderEngine {
     protected override void OnUpdateFrame(FrameEventArgs e){
       base.OnUpdateFrame(e); // Necessary.
       if(this._renderer != null){
-        this._renderer.Render();
+        this._renderer.Render(e); // So we can use deltaTime.
       }
     }
 

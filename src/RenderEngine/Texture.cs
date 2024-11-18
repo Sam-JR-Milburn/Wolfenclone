@@ -6,7 +6,7 @@ using StbImageSharp;
 
 namespace RenderEngine {
 
-  /// <remarks> ... </remarks>
+  /// <remarks> Loads an image and stores it as a texture with the GPU. </remarks>
   public class Texture {
     private bool _disposed;
     private int _handle; // Stores the texture in OpenGL memory.
@@ -14,16 +14,16 @@ namespace RenderEngine {
       return this._handle;
     }
 
-    /// <summary> ... </summary>
+    /// <summary> Activate the texture in GPU memory. </summary>
     public void Use(){
-      GL.ActiveTexture(TextureUnit.Texture0); // Should be dynamic, later.
+      GL.ActiveTexture(TextureUnit.Texture0); // Should be dynamic, later?
       GL.BindTexture(TextureTarget.Texture2D, this._handle);
     }
 
     /// <remarks> Frees GPU memory, protected - inherited from IDisposable. </remarks>
     protected virtual void Dispose(bool disposing){
       if(!this._disposed){
-        // -- //
+        // -- // Anything Here? // -- //
         this._disposed = true;
       }
     }
