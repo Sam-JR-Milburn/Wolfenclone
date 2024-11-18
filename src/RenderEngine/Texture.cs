@@ -61,7 +61,7 @@ namespace RenderEngine {
         0, PixelFormat.Rgba, PixelType.UnsignedByte,
         teximage.Data);
 
-      // Define how textures render.
+      // Define how textures render. // Static?
       GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, (int)TextureMinFilter.Linear);
       GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, (int)TextureMagFilter.Linear);
       // Wrap mode.

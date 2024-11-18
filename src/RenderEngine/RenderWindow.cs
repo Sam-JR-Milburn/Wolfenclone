@@ -2,6 +2,7 @@
 using System;
 
 using OpenTK.Graphics.OpenGL4;
+using OpenTK.Mathematics; // Just for Vector2i.
 using OpenTK.Windowing.Common;
 using OpenTK.Windowing.Desktop;
 using OpenTK.Windowing.GraphicsLibraryFramework;
@@ -50,7 +51,10 @@ namespace RenderEngine {
     protected override void OnLoad(){
       base.OnLoad();
       this.SwapBuffers();
-      this._renderer = new Renderer(); // Initialises the renderer.
+      // Resulting aspect ratio will change depending on taskbar orientation and 'fullscreenity'.
+      // In my case, (1366,768) -> (1366, 699) with taskbar and non-fullscreen.
+      Vector2i clientSize = this.ClientSize;
+      this._renderer = new Renderer(clientSize.X, clientSize.Y); // Initialises the renderer.
     }
 
     /// <remarks> OpenGL Buffer Cleanup. </remarks>

@@ -1,5 +1,6 @@
 // Filename: Shader.cs
 using OpenTK.Graphics.OpenGL4;
+using OpenTK.Mathematics;
 
 namespace RenderEngine {
 
@@ -13,6 +14,9 @@ namespace RenderEngine {
     public int GetHandle(){
       return this._handle;
     }
+
+    // OpenGL Uniforms section: pass CPU information to the GPU.
+    private readonly Dictionary<String, int> _uniformLocations;
 
     /// <summary> Runs the Shader 'program' in the GPU. </summary>
     public void Use(){
@@ -94,7 +98,25 @@ namespace RenderEngine {
       GL.DetachShader(this._handle, fragmentShader);
       GL.DeleteShader(vertexShader);
       GL.DeleteShader(fragmentShader);
+
+      // Establish the GPU locations of uniforms while loading the Shader.
+      this._uniformLocations = new Dictionary<String, int>();
+      int uniformsNumber;
+      GL.GetProgram(this._handle, GetProgramParameterName.ActiveUniforms, out uniformsNumber);
+      for(int index = 0; index < uniformsNumber; index++){
+
+        String key = GL.GetActiveUniform(this._handle, index, out _, out _);
+        int location = GL.GetUniformLocation(this._handle, key);
+        
+        this._uniformLocations.Add(key, location);
+      }
     }
 
+    /// <summary> This section defines how to pass uniform data to the shader in GPU memory. </summary>
+
+    public void SetMatrix4(string name, Matrix4 data){
+      GL.UseProgram(this._handle);
+      GL.UniformMatrix4(_uniformLocations[name], true, ref data);
+    }
   }
 }
