@@ -4,11 +4,13 @@ using System;
 using OpenTK.Graphics.OpenGL4;
 using StbImageSharp;
 
+using Misc; // Logger.
+
 namespace RenderEngine {
 
   /// <remarks> Loads an image and stores it as a texture with the GPU. </remarks>
   public class Texture {
-    private bool _disposed;
+
     private int _handle; // Stores the texture in OpenGL memory.
     public int GetHandle(){
       return this._handle;
@@ -16,12 +18,13 @@ namespace RenderEngine {
 
     /// <summary> Activate the texture in GPU memory. </summary>
     public void Use(){
-      GL.ActiveTexture(TextureUnit.Texture0); // Should be dynamic, later?
+      GL.ActiveTexture(TextureUnit.Texture0); // This may not need to be actually 'dynamic'.
       GL.BindTexture(TextureTarget.Texture2D, this._handle);
     }
 
-    /// <remarks> Frees GPU memory, protected - inherited from IDisposable. </remarks>
-    protected virtual void Dispose(bool disposing){
+    /// <summary> Frees GPU memory, protected - inherited from IDisposable. </summary>
+    private bool _disposed;
+    protected virtual void Dispose(bool disposing){ // ignoring 'disposing'.
       if(!this._disposed){
         // -- // Anything Here? // -- //
         this._disposed = true;
@@ -31,8 +34,7 @@ namespace RenderEngine {
     /// <remarks> Keeps track of resource leaks. </remarks>
     ~Texture(){
         if(!this._disposed){
-            File.AppendAllText("logfile",
-              "GPU resource leak from Texture: "+this._handle+" at "+DateTime.Now+"\n"); // DEBUG: Logger
+            Logger.LogToFile("GPU resource leak from Texture: "+this._handle+" at "+DateTime.Now);
         }
     }
 
@@ -61,14 +63,14 @@ namespace RenderEngine {
         0, PixelFormat.Rgba, PixelType.UnsignedByte,
         teximage.Data);
 
-      // Define how textures render. // Static?
+      // Define how textures render.
       GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, (int)TextureMinFilter.Linear);
       GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, (int)TextureMagFilter.Linear);
       // Wrap mode.
       GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapS, (int)TextureWrapMode.Repeat);
       GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapT, (int)TextureWrapMode.Repeat);
-      // --//
-      // GenerateMipMap can be used here.
+
+      // --// Generate MipMap here? // -- //
     }
   }
 }

@@ -2,6 +2,8 @@
 using OpenTK.Graphics.OpenGL4;
 using OpenTK.Mathematics;
 
+using Misc; // Logger.
+
 namespace RenderEngine {
 
   /// <remarks>
@@ -9,13 +11,13 @@ namespace RenderEngine {
   /// hold their reference, and delete them when they're not needed, to avoid memory leaks.
   /// </remarks>
   public class Shader : IDisposable {
-    private bool _disposed = false;
-    private int _handle; // OpenGL 'handle': references GPU memory.
+
+    private int _handle; // Stores the shader program in GPU memory.
     public int GetHandle(){
       return this._handle;
     }
 
-    // OpenGL Uniforms section: pass CPU information to the GPU.
+    // OpenGL Uniforms section: pass CPU data to the GPU, like matrices.
     private readonly Dictionary<String, int> _uniformLocations;
 
     /// <summary> Runs the Shader 'program' in the GPU. </summary>
@@ -29,6 +31,7 @@ namespace RenderEngine {
     }
 
     /// <remarks> Frees GPU memory, protected - inherited from IDisposable. </remarks>
+    private bool _disposed = false;
     protected virtual void Dispose(bool disposing){
         if (!this._disposed){
             GL.DeleteProgram(this._handle);
@@ -39,8 +42,7 @@ namespace RenderEngine {
     /// <remarks> Keeps track of resource leaks. </remarks>
     ~Shader(){
         if(!this._disposed){
-            File.AppendAllText("logfile",
-              "GPU resource leak from Shader: "+this._handle+" at "+DateTime.Now+"\n"); // DEBUG: Logger
+            Logger.LogToFile("GPU resource leak from Shader: "+this._handle+" at "+DateTime.Now);
         }
     }
 
@@ -70,7 +72,7 @@ namespace RenderEngine {
       GL.GetShader(vertexShader, ShaderParameter.CompileStatus, out success);
       if(success == 0){ // Vertex.
         string infoLog = GL.GetShaderInfoLog(vertexShader);
-        File.AppendAllText("logfile", "Issue with vertex shader compilation: "+infoLog+"\n"); // DEBUG: Logger
+        Logger.LogToFile("Issue with vertex shader compilation: "+infoLog);
         throw new GraphicsException(infoLog);
       }
 
@@ -78,7 +80,7 @@ namespace RenderEngine {
       GL.GetShader(fragmentShader, ShaderParameter.CompileStatus, out success);
       if(success == 0){ // Fragment.
         string infoLog = GL.GetShaderInfoLog(fragmentShader);
-        File.AppendAllText("logfile", "Issue with fragment shader compilation: "+infoLog+"\n"); // DEBUG: Logger
+        Logger.LogToFile("Issue with fragment shader compilation: "+infoLog);
         throw new GraphicsException(infoLog);
       }
 
@@ -89,7 +91,7 @@ namespace RenderEngine {
       GL.GetProgram(this._handle, GetProgramParameterName.LinkStatus, out success);
       if(success == 0){
         string infoLog = GL.GetProgramInfoLog(this._handle);
-        File.AppendAllText("logfile", "GPU program creation: "+infoLog+"\n"); // DEBUG: Logger
+        Logger.LogToFile("GPU program creation: "+infoLog);
         throw new GraphicsException(infoLog);
       }
 
@@ -107,13 +109,12 @@ namespace RenderEngine {
 
         String key = GL.GetActiveUniform(this._handle, index, out _, out _);
         int location = GL.GetUniformLocation(this._handle, key);
-        
+
         this._uniformLocations.Add(key, location);
       }
     }
 
     /// <summary> This section defines how to pass uniform data to the shader in GPU memory. </summary>
-
     public void SetMatrix4(string name, Matrix4 data){
       GL.UseProgram(this._handle);
       GL.UniformMatrix4(_uniformLocations[name], true, ref data);

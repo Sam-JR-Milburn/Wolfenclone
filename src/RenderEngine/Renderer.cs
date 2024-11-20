@@ -7,21 +7,27 @@ using OpenTK.Windowing.Desktop;
 using OpenTK.Windowing.GraphicsLibraryFramework;
 
 using OpenTK.Windowing.Common.Input; // DEBUG: Mouse Cursor.
+using Misc; // Logger.
 
 namespace RenderEngine {
 
   /// <remarks> ... </remarks>
   public class Renderer : IDisposable {
-    // --
-    private double _aspectRatio;
+    private double _aspectRatio; // -- //
 
-    /// <remarks> Container for Shaders. </remarks>
+    /// <remarks> Container for Textures + Vertices. </remarks>
     // -- HERE -- //
 
     /// <summary> Consistent references to OpenGL render resources. </summary>
-    private int vertexBufferObject;
-    private int vertexArrayObject;
-    private int elementBufferObject;
+    /// <remarks> No need for ElementBufferObject any longer. </remarks>
+    private int _vertexBufferObject;
+    private int _vertexArrayObject;
+
+    /// <summary>
+    /// This Shader GPU program takes a model matrix, a view matrix and a projection matrix.
+    /// It also takes Textures in an on-line way.
+    /// </summary>
+    private Shader _textureShader;
 
     /// DEBUG: Move me elsewhere later.
     private Vector3 cameraPosition = new Vector3(0.0f, 0.0f, 5.0f);
@@ -30,112 +36,70 @@ namespace RenderEngine {
     private float Yaw = 0.0f; private float Pitch = 0.0f;
     Vector2 lastMousePos = new Vector2(0,0);
 
-
-
-
-    // DEBUG: Texture work.
-    private Shader exampleShader;
+    // DEBUG: Get rid of me.
     private Texture exampleTexture;
-
-    // DEBUG: More texture work.
     private Texture exampleTexture1;
 
-    // -- //
-    float[] vertices = {
-      //Position                Texture coordinates
-         0.0f,  0.5f, 0.0f,     1.0f, 1.0f, // top right
-         0.0f, -0.5f, 0.0f,     1.0f, 0.0f, // bottom right
-        -0.5f, -0.5f, 0.0f,     0.0f, 0.0f, // bottom left
-        -0.5f,  0.5f, 0.0f,     0.0f, 1.0f  // top left
-    };
-
-    uint[] indices = {
-      0, 1, 3,
-      1, 2, 3
-    };
-
-    /// <remarks> Maybe, a later 'load assets' function calling this. </remarks>
-    private bool LoadShaders(){
-      /// <remarks> At some point, there should be a JSON list describing these assets.</remarks>
+    /// <summary> Load the shader and texture assets from self-describing data. </summary>
+    private void LoadAssets(){
+      String resDir = "res/"; String textureDir = "textures/";
+      // Used for most rendering.
       try {
-        this.exampleTexture = new Texture("res/sandstone-2.png");
-        this.exampleShader = new Shader("res/textureshader.vert", "res/textureshader.frag");
-        this.exampleTexture1 = new Texture("res/sandstone-1.jpg");
-      } catch(GraphicsException){
-        return false;
+        this._textureShader = new Shader(
+          resDir+"textureshader.vert",
+          resDir+"textureshader.frag");
+      } catch {
+        Logger.LogToFile("Couldn't load the texture shader."); throw;
       }
-      return true;
+      // Load from a dictionary.
+      this.exampleTexture = new Texture(resDir+textureDir+"sandstone-1.jpg");
+      this.exampleTexture1 = new Texture(resDir+textureDir+"sandstone-2.png");
     }
 
     /// <remarks> ... </remarks>
-    private bool Initialise(){
+    private void Initialise(){
       GL.ClearColor(0.1f,0.1f,0.1f,1.0f);
-      // Load resources, like Shaders and Textures.
-      if(!this.LoadShaders()) { return false; }
 
       // Build the VAO (Contains VBO refs).
-      this.vertexArrayObject = GL.GenVertexArray();
-      GL.BindVertexArray(this.vertexArrayObject);
-
+      this._vertexArrayObject = GL.GenVertexArray();
+      GL.BindVertexArray(this._vertexArrayObject);
       // Build the Vertex Buffer (VBO).
-      this.vertexBufferObject = GL.GenBuffer();
-      GL.BindBuffer(BufferTarget.ArrayBuffer, this.vertexBufferObject);
-
-      GL.BufferData(BufferTarget.ArrayBuffer,
-        this.vertices.Length * sizeof(float),
-        this.vertices,
-        BufferUsageHint.StaticDraw);
-
-      // Build the EBO.
-      this.elementBufferObject = GL.GenBuffer();
-      GL.BindBuffer(BufferTarget.ElementArrayBuffer, this.elementBufferObject);
-
-      GL.BufferData(BufferTarget.ElementArrayBuffer,
-        this.indices.Length * sizeof(uint),
-        this.indices,
-        BufferUsageHint.StaticDraw);
-
-      // --
-      this.exampleShader.Use();
-      int vertexLocation = this.exampleShader.GetAttribLocation("aPosition");
-      int texCoordLocation = this.exampleShader.GetAttribLocation("aTexCoord");
+      this._vertexBufferObject = GL.GenBuffer();
+      GL.BindBuffer(BufferTarget.ArrayBuffer, this._vertexBufferObject);
 
       /// <remarks> Inform OpenTK how to render this textured vertex data. </remarks>
-      GL.EnableVertexAttribArray(vertexLocation);
+      int vertexLocation      = this._textureShader.GetAttribLocation("aPosition");
+      int texCoordLocation    = this._textureShader.GetAttribLocation("aTexCoord");
+
+      GL.EnableVertexAttribArray(vertexLocation); // Object vertices [3D].
       GL.VertexAttribPointer(vertexLocation, 3, VertexAttribPointerType.Float, false,
         5 * sizeof(float), 0);
-      GL.EnableVertexAttribArray(texCoordLocation);
+
+      GL.EnableVertexAttribArray(texCoordLocation); // Texture vertices [2D].
       GL.VertexAttribPointer(texCoordLocation, 2, VertexAttribPointerType.Float, false,
         5 * sizeof(float), 3 * sizeof(float));
-      // -- //
 
       GL.Enable(EnableCap.DepthTest); // Enable z-buffer.
-
-      return true; // Notice of intention, right now.
     }
 
     /// <remarks> Clean up resources, track the state of that. </remarks>
     private bool _disposed = false;
     protected virtual void Dispose(bool disposing){
-      if(!this._disposed){
+      if(this._disposed){ return; }
+      // Null all references.
+      GL.BindBuffer(BufferTarget.ArrayBuffer, 0);
+      GL.BindVertexArray(0);
+      GL.UseProgram(0);
+      // Delete all resources
+      GL.DeleteBuffer(this._vertexBufferObject);
+      GL.DeleteVertexArray(this._vertexArrayObject);
+      // Delete the texture shader.
+      GL.DeleteProgram(this._textureShader.GetHandle());
 
-        // Null all references.
-        GL.BindBuffer(BufferTarget.ArrayBuffer, 0);
-        GL.BindVertexArray(0);
-        GL.BindBuffer(BufferTarget.ElementArrayBuffer, 0);
-        GL.UseProgram(0);
-        // Delete all resources
-        GL.DeleteBuffer(this.vertexBufferObject);
-        GL.DeleteVertexArray(this.vertexArrayObject);
-        GL.DeleteBuffer(this.elementBufferObject);
-        // Delete Shader assets.
-        GL.DeleteProgram(this.exampleShader.GetHandle());
-
-        /// Flag prevents calls made between disposition and deconstruction.
-        this._disposed = true;
-      }
+      /// Flag prevents calls made between disposition and deconstruction.
+      this._disposed = true;
     }
-    /// <remarks> Publically accessible disposition. </remarks>
+    /// <summary> Publically accessible disposition. </summary>
     public void Dispose(){
       this.Dispose(true);
       GC.SuppressFinalize(this);
@@ -143,14 +107,13 @@ namespace RenderEngine {
     /// <remarks> Just here to report deconstruction without disposition. </remarks>
     ~Renderer(){
       if(!this._disposed){
-        File.AppendAllText("logfile",
-          "GPU resource leak from Renderer "+"at "+DateTime.Now+"\n"); // DEBUG: Logger
+        Logger.LogToFile("GPU resource leak from Renderer "+"at "+DateTime.Now);
       }
     }
 
     /// <summary> Renders a frame worth of graphics. </summary>
     /// <remarks> Should take some game state, and use OpenGL calls to represent that. </remarks>
-    public void Render(FrameEventArgs e){
+    public void Render(){
       // Run Graphics.
       GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit); // Color and z-buffer.
       RenderWindow? window = RenderEngine.RenderWindow.GetInstance();
@@ -214,9 +177,9 @@ namespace RenderEngine {
       Matrix4 projection = Matrix4.CreatePerspectiveFieldOfView(
         MathHelper.DegreesToRadians(45.0f),
         Width / Height, 0.01f, 100.0f);
-      this.exampleShader.SetMatrix4("model", model);
-      this.exampleShader.SetMatrix4("view", view);
-      this.exampleShader.SetMatrix4("projection", projection);
+      this._textureShader.SetMatrix4("model", model);
+      this._textureShader.SetMatrix4("view", view);
+      this._textureShader.SetMatrix4("projection", projection);
 
       float[] newVertices = {
           -0.5f, -0.5f, -0.5f,  0.0f, 0.0f,
@@ -263,9 +226,11 @@ namespace RenderEngine {
       };
       // -- //
       // Activate GPU resources, draw with them.
-      GL.BindVertexArray(this.vertexArrayObject);
+      GL.BindVertexArray(this._vertexArrayObject);
+
       this.exampleTexture.Use();
-      this.exampleShader.Use();
+      this._textureShader.Use();
+
       GL.BufferData(BufferTarget.ArrayBuffer,
         newVertices.Length * sizeof(float),
         newVertices,
@@ -279,11 +244,11 @@ namespace RenderEngine {
         0.0f,
         (float)Math.Sin(DateTime.Now.TimeOfDay.TotalMilliseconds/1000),
         0.0f);
-      this.exampleShader.SetMatrix4("model", model);
-      this.exampleShader.SetMatrix4("view", view);
-      this.exampleShader.SetMatrix4("projection", projection);
+      this._textureShader.SetMatrix4("model", model);
+      this._textureShader.SetMatrix4("view", view);
+      this._textureShader.SetMatrix4("projection", projection);
       this.exampleTexture1.Use();
-      this.exampleShader.Use();
+      this._textureShader.Use();
       GL.BufferData(BufferTarget.ArrayBuffer,
         newVertices.Length * sizeof(float),
         newVertices,
@@ -294,17 +259,26 @@ namespace RenderEngine {
       window.SwapBuffers();
     }
 
-    /// <remarks> ... </remarks>
+    /// <remarks> Pass the aspect ratio through constructor chaining. </remarks>
     public Renderer(int width, int height) : this((double)(height / width)){
       if(height == 0){ throw new DivideByZeroException(); }
       if(width <= 0 || height <= 0){ throw new ArgumentException("The height or width can't be less than 1."); }
     }
 
-    /// <remarks> Initialise before a Renderer reference can be used. </remarks>
+    /// <summary> Build and establish the rendering portion of the RenderEngine </summary>
     public Renderer(double aspectRatio){
       this._aspectRatio = aspectRatio;
-      this.Initialise();
+      try {
+        this.LoadAssets();
+      } catch {
+        Logger.LogToFile("Renderer failed with LoadAssets.");
+        throw;
+      }
+      // This shouldn't happen, but the compiler won't shut up about references on exit.
+      if(!(this._textureShader is Shader)){
+        throw new NullReferenceException("TextureShader is not available. ");
+      }
+      this.Initialise(); // Build the OpenGL objects.
     }
-
   }
 }

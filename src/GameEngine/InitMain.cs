@@ -11,6 +11,8 @@ using OpenTK.Windowing.Common;
 using GameEngine;
 using RenderEngine;
 
+using Misc; // Logger.
+
 namespace Initialisation {
 
   public class InitMain {
@@ -23,13 +25,16 @@ namespace Initialisation {
       return true;
     }
 
+    /// <remarks> </remarks>
+    private static bool _settingsOverride = false;
+
     /// <summary> Our default options from the settings.json file. </summary>
     private static NativeWindowSettings _windowSettingsDefault =
       new NativeWindowSettings(){
         ClientSize = (500,500),
         Title = "ErrorTitle",
         WindowState = WindowState.Maximized
-      };
+    };
     public static NativeWindowSettings GetSettingsDefault(){
       return InitMain._windowSettingsDefault;
     }
@@ -37,8 +42,8 @@ namespace Initialisation {
     /// <summary>
     /// Custom, overriding options from the settings.json file: Nullable.
     /// </summary>
-    private static NativeWindowSettings? _windowSettingsCustom = null;
-    public static NativeWindowSettings? GetSettingsCustom(){
+    private static NativeWindowSettings _windowSettingsCustom = InitMain._windowSettingsDefault;
+    public static NativeWindowSettings GetSettingsCustom(){
       return InitMain._windowSettingsCustom;
     }
 
@@ -48,10 +53,10 @@ namespace Initialisation {
       if(settingsTree == null){
         throw new ArgumentException("Invalid settings argument encountered while parsing.");
       }
-
       // Dynamic Settings: Window Size from MonitorInfo.
       int width   = InitMain._currentMonitorInfo.HorizontalResolution;
       int height  = InitMain._currentMonitorInfo.VerticalResolution;
+
       // Process the enum. I know this is finicky with JSON, but it works for now.
       String wstateRaw = settingsTree["WindowState"].ToString().Replace("\"", String.Empty);
       WindowState wstate; // Non-nullable.
@@ -77,25 +82,33 @@ namespace Initialisation {
         throw new FileNotFoundException("Filename provided is not a file.");
       }
 
-      // Parse.
-      String jsonRaw;
+      String jsonRaw; // Parse.
       JsonValue settingsJson;
       try {
         jsonRaw = File.ReadAllText(filename);
         settingsJson = JsonValue.Parse(jsonRaw);
-      } catch(Exception) {
-        throw; // Pass the *specific* exception to an external catcher.
+      } catch { throw; }
+
+      JsonValue settingsBlock; // Assign the NativeWindowSettings.
+
+      // Does the custom override the default? Check.
+      if(settingsJson.ContainsKey("customOverride")){
+        String customOverride = settingsJson["customOverride"].ToString();
+        if(!String.IsNullOrEmpty(customOverride)){
+          customOverride = customOverride.Replace("\"", String.Empty);
+          if(customOverride.Equals("true")){ InitMain._settingsOverride = true; }
+          // Elsewise, do nothing.
+        }
       }
 
-      // Assign the NativeWindowSettings.
-      JsonValue settingsBlock;
+      // Load our default. Necessary.
       if(!settingsJson.ContainsKey("default")){
         throw new ArgumentException("settings.json needs a default settings block.");
       }
       settingsBlock = settingsJson["default"];
       InitMain._windowSettingsDefault = InitMain.ParseSettingsTree(settingsBlock);
 
-      // Not-necessary.
+      // Load our custom. Not-necessary.
       if(settingsJson.ContainsKey("custom")){
         settingsBlock = settingsJson["custom"];
         InitMain._windowSettingsCustom = InitMain.ParseSettingsTree(settingsBlock);
@@ -110,19 +123,24 @@ namespace Initialisation {
       try {
         InitMain.LoadOptionsFromFile("settings.json");
       } catch(Exception e){
-        Console.WriteLine("Couldn't parse settings!");
-        Console.WriteLine(e.ToString());
+        Logger.LogToFile("InitMain: Couldn't parse settings.json.");
+        Logger.LogToFile(e.ToString());
         return;
       }
 
-      // OpenGL (GLFW) must be called from the Main thread.
-      RenderWindow window = RenderWindow.InitialiseInstance(InitMain.GetSettingsDefault(), 60.0);
+      RenderWindow window; // OpenGL Rendering must be called from the Main thread.
+      if(InitMain._settingsOverride){
+        window = RenderWindow.InitialiseInstance(InitMain.GetSettingsCustom(), 60.0);
+      } else {
+        window = RenderWindow.InitialiseInstance(InitMain.GetSettingsDefault(), 60.0);
+      }
       window.CenterWindow();
       // Pass the window reference to the GameEngine first.
       GameRunner runner = new GameRunner();
       window.AddObserver(runner);
-      // Game logic run in a separate thread, communicating through observer pattern.
+      // Game logic run in a separate thread, communicating through the observer pattern.
       new Thread(() => { runner.Run(); }).Start();
+      // -- // If there are other threads, like sound FX, call them here. // -- //
       // Run Window after setting up multithreading.
       window.Run();
 		}

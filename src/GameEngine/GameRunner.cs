@@ -1,6 +1,7 @@
 // Filename: GameRunner.cs
 using System;
-using System.IO; // DEBUG: Logger
+
+using Misc; // Logger.
 
 using RenderEngine;
 // Key-input check.
@@ -27,7 +28,7 @@ namespace GameEngine {
     /// <remarks> Made this a little safer.</remarks>
     private void ProcessInput(){
       if(this._targetWindow == null){
-        File.AppendAllText("logfile", "Lost reference to the RenderWindow. \n"); // DEBUG: Logger
+        Logger.LogToFile("GameRunner lost reference to the RenderWindow.");
         this.Quit(); return;
       }
 

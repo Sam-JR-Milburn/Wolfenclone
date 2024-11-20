@@ -7,6 +7,8 @@ using OpenTK.Windowing.Common;
 using OpenTK.Windowing.Desktop;
 using OpenTK.Windowing.GraphicsLibraryFramework;
 
+using Misc; // Logger.
+
 namespace RenderEngine {
 
   public class RenderWindow : GameWindow {
@@ -51,49 +53,50 @@ namespace RenderEngine {
     protected override void OnLoad(){
       base.OnLoad();
       this.SwapBuffers();
-      this.CursorState = CursorState.Grabbed; // --
+      this.CursorState = CursorState.Grabbed; // Makes the mouse invisible when the window is up.
       // Resulting aspect ratio will change depending on taskbar orientation and 'fullscreenity'.
-      // In my case, (1366,768) -> (1366, 699) with taskbar and non-fullscreen.
       Vector2i clientSize = this.ClientSize;
-      this._renderer = new Renderer(clientSize.X, clientSize.Y); // Initialises the renderer.
+      try {
+        this._renderer = new Renderer(clientSize.X, clientSize.Y); // Initialises the renderer.
+      } catch {
+        Logger.LogToFile("Couldn't load Renderer in RenderWindow.");
+        throw;
+      }
     }
 
-    /// <remarks> OpenGL Buffer Cleanup. </remarks>
+    /// <summary> Cleanup all components that need cleanup. </summary>
     protected override void OnUnload(){
       base.OnUnload();
       if(this._renderer != null){
-        this._renderer.Dispose(); // Cleans up the renderer's resources.
+        this._renderer.Dispose(); // OpenGL references, textures etc.
       }
     }
 
-    /// <summary>
-    /// Render graphics from the game engine's state.
-    /// </summary>
+    /// <summary> Render graphics from the game engine's state. </summary>
     protected override void OnUpdateFrame(FrameEventArgs e){
       base.OnUpdateFrame(e); // Necessary.
       if(this._renderer != null){
-        this._renderer.Render(e); // So we can use deltaTime.
+        this._renderer.Render();
       }
     }
 
-    /// <summary> Change the Open GL view port size proportional to the window resize. </summary>
+    /// <summary> Adjust the OpenGL viewport to some new size. </summary>
     protected override void OnFramebufferResize(FramebufferResizeEventArgs e){
       base.OnFramebufferResize(e);
       GL.Viewport(0, 0, e.Width, e.Height);
     }
 
-    /// Missing: Overriden GameWindow.Close() - no longer necessary.
-
     /// <remarks>
     /// Override Run(): close other threads when close button is clicked.
     /// </remarks>
     public override void Run(){
-      base.Run();
+      base.Run(); // When .Close() is called, program control will move past this.
       this.SendToAllObservers("WINDOWCLOSE"); // Send signal to GameRunner.
     }
 
     /// <summary>
-    /// RenderWindow: Singleton with components externally passed via static InitialiseInstance(*).
+    /// RenderWindow: Settings passed externally via nws and framerate.
+    /// private: Singleton pattern to-be-called via InitialiseInstance(*).
     /// </summary>
     private RenderWindow(NativeWindowSettings nws, double framerate) : base (
       GameWindowSettings.Default, nws){

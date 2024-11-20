@@ -1,4 +1,5 @@
 {
+  "customOverride": "false",
   "default": {
     "WindowState": "Maximized",
     "Title": "Wolfenclone"
