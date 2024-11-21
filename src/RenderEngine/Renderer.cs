@@ -13,7 +13,7 @@ namespace RenderEngine {
 
   /// <remarks> ... </remarks>
   public class Renderer : IDisposable {
-    private double _aspectRatio; // -- //
+
 
     /// <remarks> Container for Textures + Vertices. </remarks>
     // -- HERE -- //
@@ -24,16 +24,20 @@ namespace RenderEngine {
     private int _vertexArrayObject;
 
     /// <summary>
-    /// This Shader GPU program takes a model matrix, a view matrix and a projection matrix.
-    /// It also takes Textures in an on-line way.
+    /// Texture Shader: a GLSL program on the GPU.
+    /// It takes 'model', 'view' and 'projection' matrices, and then a texture - passed per render.
     /// </summary>
     private Shader _textureShader;
 
-    /// DEBUG: Move me elsewhere later.
-    private Vector3 cameraPosition = new Vector3(0.0f, 0.0f, 5.0f);
-    private Vector3 cameraFront = new Vector3(0.0f, 0.0f, -1.0f);
-    private Vector3 cameraUp = new Vector3(0.0f, 1.0f,  0.0f);
-    private float Yaw = 0.0f; private float Pitch = 0.0f;
+    /// --
+    private Camera _camera;
+    // --
+    public void SetFov(float fov){
+      this._camera.SetFov(fov);
+    }
+
+
+    // DEBUG: Move me to GameRunner ProcessInput()
     Vector2 lastMousePos = new Vector2(0,0);
 
     // DEBUG: Get rid of me.
@@ -43,20 +47,20 @@ namespace RenderEngine {
     /// <summary> Load the shader and texture assets from self-describing data. </summary>
     private void LoadAssets(){
       String resDir = "res/"; String textureDir = "textures/";
-      // Used for most rendering.
       try {
-        this._textureShader = new Shader(
+        this._textureShader = new Shader( // Used for most rendering.
           resDir+"textureshader.vert",
           resDir+"textureshader.frag");
       } catch {
-        Logger.LogToFile("Couldn't load the texture shader."); throw;
+        Logger.LogToFile("Renderer couldn't load the texture shader."); throw;
       }
-      // Load from a dictionary.
+      // Load from a dictionary?
       this.exampleTexture = new Texture(resDir+textureDir+"sandstone-1.jpg");
       this.exampleTexture1 = new Texture(resDir+textureDir+"sandstone-2.png");
     }
 
-    /// <remarks> ... </remarks>
+    /// <summary> Builds the OpenGL render objects, and informs how to process data. </summary>
+    /// <remarks> Only handling 3x position and 2x texture mapping vertices right now. </remarks>
     private void Initialise(){
       GL.ClearColor(0.1f,0.1f,0.1f,1.0f);
 
@@ -96,13 +100,12 @@ namespace RenderEngine {
       // Delete the texture shader.
       GL.DeleteProgram(this._textureShader.GetHandle());
 
-      /// Flag prevents calls made between disposition and deconstruction.
       this._disposed = true;
     }
     /// <summary> Publically accessible disposition. </summary>
     public void Dispose(){
       this.Dispose(true);
-      GC.SuppressFinalize(this);
+      GC.SuppressFinalize(this); // Prevent deconstruction before disposition.
     }
     /// <remarks> Just here to report deconstruction without disposition. </remarks>
     ~Renderer(){
@@ -113,70 +116,44 @@ namespace RenderEngine {
 
     /// <summary> Renders a frame worth of graphics. </summary>
     /// <remarks> Should take some game state, and use OpenGL calls to represent that. </remarks>
+    /// <remarks> Camera object and a container of 'graphics objects?' </remarks>
     public void Render(){
       // Run Graphics.
-      GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit); // Color and z-buffer.
+      GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit); // Color *and* z-buffer.
       RenderWindow? window = RenderEngine.RenderWindow.GetInstance();
-      if(window == null){ throw new InvalidOperationException("No window reference in Renderer!"); }
+      if(window == null){ throw new InvalidOperationException("Renderer: No RenderWindow reference!"); }
 
-      // Local Space -> World Space translation.
-      Matrix4 model = Matrix4.CreateTranslation(5.5f,-1.25f,5.5f);
-
-      // -- //
+      // MOVE ME TO GAMERUNNER
       KeyboardState input = window.KeyboardState; float speed = 0.25f;
       if(input.IsKeyDown(Keys.W)){
-        this.cameraPosition += this.cameraFront * speed; // * (float)e.Time
+        this._camera.AddPosition(speed, 1.0f);
       }
       if(input.IsKeyDown(Keys.S)){
-        this.cameraPosition -= this.cameraFront * speed; // * (float)e.Time
+        this._camera.AddPosition(-speed, 1.0f);
       }
       if(input.IsKeyDown(Keys.A)){
-        this.cameraPosition -= Vector3.Normalize(Vector3.Cross(this.cameraFront, this.cameraUp)) * speed; // * (float)e.Time
+        this._camera.AddPositionAngular(-speed, 1.0f);
       }
       if(input.IsKeyDown(Keys.D)){
-        this.cameraPosition += Vector3.Normalize(Vector3.Cross(this.cameraFront, this.cameraUp)) * speed; // * (float)e.Time
+        this._camera.AddPositionAngular(speed, 1.0f);
       }
 
-      // Camera Look-Around //
+      // Camera Look-Around // MOVE ME TO GAMERUNNER. //
       Vector2 mouse = window.MousePosition;
       float deltaX = mouse.X - this.lastMousePos.X;
       float deltaY = mouse.Y - this.lastMousePos.Y;
       this.lastMousePos = new Vector2(mouse.X, mouse.Y);
       float sensitivity = 0.02f;
-      this.Yaw += (deltaX * sensitivity);
-      //this.Pitch -= (deltaY * sensitivity);
-      // Lock pitch, prevent flipping.
-      if(this.Pitch > 89.9f){
-          this.Pitch = 89.9f;
-      } else if(this.Pitch < -89.9f){
-          this.Pitch = -89.9f;
-      } else{
-          this.Pitch -= deltaY * sensitivity;
-      }
 
+      this._camera.AddYaw(deltaX * sensitivity);
+      this._camera.AddPitch(-deltaY * sensitivity);
 
-      this.cameraFront.X =
-        (float)Math.Cos(MathHelper.DegreesToRadians(this.Pitch)) *
-        (float)Math.Cos(MathHelper.DegreesToRadians(this.Yaw));
-      this.cameraFront.Y =
-        (float)Math.Sin(MathHelper.DegreesToRadians(this.Pitch));
-      this.cameraFront.Z =
-        (float)Math.Cos(MathHelper.DegreesToRadians(this.Pitch)) *
-        (float)Math.Sin(MathHelper.DegreesToRadians(this.Yaw));
-      this.cameraFront = Vector3.Normalize(this.cameraFront);
-
+      // Local Space -> World Space translation.
+      Matrix4 model = Matrix4.CreateTranslation(5.5f,-1.25f,5.5f);
       // World Space -> Camera Space translation.
-      Matrix4 view = Matrix4.LookAt(
-        this.cameraPosition,
-        this.cameraPosition+this.cameraFront,
-        this.cameraUp
-      );
+      Matrix4 view = this._camera.GenerateView();
+      Matrix4 projection = this._camera.GetProjection();
 
-      // Camera Space -> Clip Space culling.
-      int Width = 1366; int Height = 768;
-      Matrix4 projection = Matrix4.CreatePerspectiveFieldOfView(
-        MathHelper.DegreesToRadians(45.0f),
-        Width / Height, 0.01f, 100.0f);
       this._textureShader.SetMatrix4("model", model);
       this._textureShader.SetMatrix4("view", view);
       this._textureShader.SetMatrix4("projection", projection);
@@ -240,13 +217,15 @@ namespace RenderEngine {
       // -- // Two cubes? // -- //
       // --
       model = Matrix4.CreateTranslation(7.5f,-6.25f,7.5f); // World-space.
-      model *= Matrix4.CreateTranslation(
-        0.0f,
+      model *= Matrix4.CreateTranslation( // Moving back and forth.
+        (float)Math.Cos(DateTime.Now.TimeOfDay.TotalMilliseconds/1000),
         (float)Math.Sin(DateTime.Now.TimeOfDay.TotalMilliseconds/1000),
         0.0f);
+
       this._textureShader.SetMatrix4("model", model);
       this._textureShader.SetMatrix4("view", view);
       this._textureShader.SetMatrix4("projection", projection);
+
       this.exampleTexture1.Use();
       this._textureShader.Use();
       GL.BufferData(BufferTarget.ArrayBuffer,
@@ -260,14 +239,20 @@ namespace RenderEngine {
     }
 
     /// <remarks> Pass the aspect ratio through constructor chaining. </remarks>
-    public Renderer(int width, int height) : this((double)(height / width)){
+    public Renderer(int width, int height) : this(45.0f, (float)(width / height)){
       if(height == 0){ throw new DivideByZeroException(); }
-      if(width <= 0 || height <= 0){ throw new ArgumentException("The height or width can't be less than 1."); }
+      if(width < 128 || height < 128){ throw new ArgumentException("The height or width can't be less than 128."); }
+    }
+
+    /// <remarks> If we want custom FOV. </remarks>
+    public Renderer(int width, int height, float fov) : this(fov, (float)(width/height)){
+      if(height == 0){ throw new DivideByZeroException(); }
+      if(width < 128 || height < 128){ throw new ArgumentException("The height or width can't be less than 128."); }
     }
 
     /// <summary> Build and establish the rendering portion of the RenderEngine </summary>
-    public Renderer(double aspectRatio){
-      this._aspectRatio = aspectRatio;
+    public Renderer(float fov, float aspectRatio){
+      //this._aspectRatio = aspectRatio;
       try {
         this.LoadAssets();
       } catch {
@@ -276,9 +261,14 @@ namespace RenderEngine {
       }
       // This shouldn't happen, but the compiler won't shut up about references on exit.
       if(!(this._textureShader is Shader)){
-        throw new NullReferenceException("TextureShader is not available. ");
+        throw new NullReferenceException("Renderer: TextureShader is not instantiated. ");
       }
-      this.Initialise(); // Build the OpenGL objects.
+
+      /// <remarks> Consider: saved games where this will need to change. </remarks>
+      /// <remarks> It will be better for GameEngine to hold this at some point. </remarks>
+      this._camera = new Camera(new Vector3(0.0f, 0.0f, 0.0f), fov, aspectRatio);
+
+      this.Initialise(); // Build the OpenGL GPU resources.
     }
   }
 }
