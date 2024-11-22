@@ -13,10 +13,9 @@ namespace RenderEngine {
 
   /// <remarks> ... </remarks>
   public class Renderer : IDisposable {
-
-
     /// <remarks> Container for Textures + Vertices. </remarks>
-    // -- HERE -- //
+    private Dictionary<String, GraphicsObject> _graphicsObjects =
+      new Dictionary<String, GraphicsObject>();
 
     /// <summary> Consistent references to OpenGL render resources. </summary>
     /// <remarks> No need for ElementBufferObject any longer. </remarks>
@@ -24,25 +23,13 @@ namespace RenderEngine {
     private int _vertexArrayObject;
 
     /// <summary>
-    /// Texture Shader: a GLSL program on the GPU.
-    /// It takes 'model', 'view' and 'projection' matrices, and then a texture - passed per render.
+    /// GLSL program that takes 'model', 'view' and 'projection' matrices, drawing with a texture.
     /// </summary>
     private Shader _textureShader;
 
-    /// --
+    /// <summary> Our primary camera in world-space. </summary>
+    /// <remarks> Move me to GameRunner??? There should be a reference here, but yea. </remarks>
     private Camera _camera;
-    // --
-    public void SetFov(float fov){
-      this._camera.SetFov(fov);
-    }
-
-
-    // DEBUG: Move me to GameRunner ProcessInput()
-    Vector2 lastMousePos = new Vector2(0,0);
-
-    // DEBUG: Get rid of me.
-    private Texture exampleTexture;
-    private Texture exampleTexture1;
 
     /// <summary> Load the shader and texture assets from self-describing data. </summary>
     private void LoadAssets(){
@@ -54,9 +41,10 @@ namespace RenderEngine {
       } catch {
         Logger.LogToFile("Renderer couldn't load the texture shader."); throw;
       }
-      // Load from a dictionary?
-      this.exampleTexture = new Texture(resDir+textureDir+"sandstone-1.jpg");
-      this.exampleTexture1 = new Texture(resDir+textureDir+"sandstone-2.png");
+
+      /// <remarks> This should be loaded as identity string:texture filename pairs </remarks>
+      this._graphicsObjects.Add("object-1", new GraphicsObject(resDir+textureDir+"sandstone-3.png"));
+      this._graphicsObjects.Add("object-2", new GraphicsObject(resDir+textureDir+"sandstone-1.jpg"));
     }
 
     /// <summary> Builds the OpenGL render objects, and informs how to process data. </summary>
@@ -114,6 +102,18 @@ namespace RenderEngine {
       }
     }
 
+
+
+
+
+
+    // DEBUG: Move me to GameRunner ProcessInput()
+    Vector2 lastMousePos = new Vector2(0,0);
+
+
+
+
+
     /// <summary> Renders a frame worth of graphics. </summary>
     /// <remarks> Should take some game state, and use OpenGL calls to represent that. </remarks>
     /// <remarks> Camera object and a container of 'graphics objects?' </remarks>
@@ -148,91 +148,32 @@ namespace RenderEngine {
       this._camera.AddYaw(deltaX * sensitivity);
       this._camera.AddPitch(-deltaY * sensitivity);
 
-      // Local Space -> World Space translation.
-      Matrix4 model = Matrix4.CreateTranslation(5.5f,-1.25f,5.5f);
       // World Space -> Camera Space translation.
       Matrix4 view = this._camera.GenerateView();
       Matrix4 projection = this._camera.GetProjection();
 
-      this._textureShader.SetMatrix4("model", model);
+      // These need to be set.
       this._textureShader.SetMatrix4("view", view);
       this._textureShader.SetMatrix4("projection", projection);
 
-      float[] newVertices = {
-          -0.5f, -0.5f, -0.5f,  0.0f, 0.0f,
-           0.5f, -0.5f, -0.5f,  1.0f, 0.0f,
-           0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
-           0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
-          -0.5f,  0.5f, -0.5f,  0.0f, 1.0f,
-          -0.5f, -0.5f, -0.5f,  0.0f, 0.0f,
-
-          -0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
-           0.5f, -0.5f,  0.5f,  1.0f, 0.0f,
-           0.5f,  0.5f,  0.5f,  1.0f, 1.0f,
-           0.5f,  0.5f,  0.5f,  1.0f, 1.0f,
-          -0.5f,  0.5f,  0.5f,  0.0f, 1.0f,
-          -0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
-
-          -0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
-          -0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
-          -0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
-          -0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
-          -0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
-          -0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
-
-           0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
-           0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
-           0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
-           0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
-           0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
-           0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
-
-          -0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
-           0.5f, -0.5f, -0.5f,  1.0f, 1.0f,
-           0.5f, -0.5f,  0.5f,  1.0f, 0.0f,
-           0.5f, -0.5f,  0.5f,  1.0f, 0.0f,
-          -0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
-          -0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
-
-          -0.5f,  0.5f, -0.5f,  0.0f, 1.0f,
-           0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
-           0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
-           0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
-          -0.5f,  0.5f,  0.5f,  0.0f, 0.0f,
-          -0.5f,  0.5f, -0.5f,  0.0f, 1.0f
-      };
-      // -- //
-      // Activate GPU resources, draw with them.
+      // Activate GPU resources for drawing.
       GL.BindVertexArray(this._vertexArrayObject);
 
-      this.exampleTexture.Use();
-      this._textureShader.Use();
+      // Draw test object 1.
+      Matrix4 model = Matrix4.CreateTranslation(5.5f,-1.25f,5.5f);
+      this._textureShader.SetMatrix4("model", model); // Local Space -> World Space translation.
+      //this.testObject1.Draw(this._textureShader);
+      this._graphicsObjects["object-1"].Draw(this._textureShader);
 
-      GL.BufferData(BufferTarget.ArrayBuffer,
-        newVertices.Length * sizeof(float),
-        newVertices,
-        BufferUsageHint.StaticDraw);
-      GL.DrawArrays(PrimitiveType.Triangles, 0, 36);
-
-      // -- // Two cubes? // -- //
-      // --
+      // Draw test object 2.
       model = Matrix4.CreateTranslation(7.5f,-6.25f,7.5f); // World-space.
       model *= Matrix4.CreateTranslation( // Moving back and forth.
-        (float)Math.Cos(DateTime.Now.TimeOfDay.TotalMilliseconds/1000),
+        0.0f,
         (float)Math.Sin(DateTime.Now.TimeOfDay.TotalMilliseconds/1000),
         0.0f);
-
-      this._textureShader.SetMatrix4("model", model);
-      this._textureShader.SetMatrix4("view", view);
-      this._textureShader.SetMatrix4("projection", projection);
-
-      this.exampleTexture1.Use();
-      this._textureShader.Use();
-      GL.BufferData(BufferTarget.ArrayBuffer,
-        newVertices.Length * sizeof(float),
-        newVertices,
-        BufferUsageHint.StaticDraw);
-      GL.DrawArrays(PrimitiveType.Triangles, 0, 36);
+      this._textureShader.SetMatrix4("model", model); // Local Space -> World Space translation.
+      //this.testObject2.Draw(this._textureShader);
+      this._graphicsObjects["object-2"].Draw(this._textureShader);
 
       // Swap buffers: render with the window.
       window.SwapBuffers();
